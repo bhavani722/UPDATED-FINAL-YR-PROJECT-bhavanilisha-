@@ -36,6 +36,9 @@ export const healthCheck = () => api.get('/health');
 
 export const evaluateTransaction = (txData) => api.post('/evaluate', txData);
 
+export const verifyOtp = (transaction_id, entered_otp) => 
+    api.post('/verify-otp', { transaction_id, entered_otp });
+
 export const getSampleTransactions = (count = 5) =>
     api.get(`/sample-transactions?count=${count}&include_fraud=true`);
 

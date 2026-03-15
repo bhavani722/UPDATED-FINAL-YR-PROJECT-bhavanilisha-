@@ -55,6 +55,10 @@ class TransactionFilter(BaseModel):
     limit: int = 100
     offset: int = 0
 
+class VerifyOtpRequest(BaseModel):
+    transaction_id: str = Field(..., description="Transaction ID to verify")
+    entered_otp: str = Field(..., description="6-digit OTP entered by user")
+
 # ============================================================
 # App Configuration
 # ============================================================
@@ -86,6 +90,7 @@ ADMIN_USERS = {
 }
 active_tokens = {}
 transaction_log = []  # In-memory transaction log
+otp_store = {}  # In-memory OTP store
 
 # ============================================================
 # Auth Helpers
@@ -163,9 +168,29 @@ def health_check():
     }
 
 # ============================================================
+# DECISION ENGINE
+# ============================================================
+
+import random
+
+def generate_otp():
+    """Generates a 6-digit OTP."""
+    return str(random.randint(100000, 999999))
+
+def decision_engine(risk_score: float) -> str:
+    """Returns the decision based on risk score thresholds."""
+    if risk_score > 0.70:
+        return "BLOCK"
+    elif risk_score > 0.30:
+        return "OTP"
+    else:
+        return "ALLOW"
+
+# ============================================================
 # TRANSACTION EVALUATION (User Panel)
 # ============================================================
 
+@app.post("/transaction")
 @app.post("/api/evaluate")
 def evaluate_transaction(tx: TransactionRequest):
     """
@@ -199,7 +224,56 @@ def evaluate_transaction(tx: TransactionRequest):
     }
     transaction_log.append(log_entry)
 
+    # Use the new decision_engine for determining the outcome
+    risk_score = result.get('final_risk_score', 0.0)
+    decision = decision_engine(risk_score)
+    result['decision'] = decision # update decision based on new logic
+    
+    # Format the requested output while preserving the original metadata for the UI
+    transaction_id = result.get('transaction_id', tx_data['Transaction_ID'])
+    
+    if decision == "BLOCK":
+        reasons = ", ".join(result.get("fraud_reasons", []))
+        result["status"] = "BLOCKED"
+        result["risk_score"] = risk_score
+        result["reason"] = f"High fraud probability detected. Signals: {reasons}"
+    elif decision == "OTP":
+        otp = generate_otp()
+        otp_store[transaction_id] = otp
+        print(f"\n[BACKEND LOG] OTP Generated for TXN {transaction_id}: {otp}\n")
+        result["status"] = "OTP_REQUIRED"
+        result["risk_score"] = risk_score
+        result["otp_generated"] = otp
+    else:
+        # ALLOW
+        result["status"] = "APPROVED"
+        result["risk_score"] = risk_score
+
     return result
+
+@app.post("/verify-otp")
+@app.post("/api/verify-otp")
+def verify_otp(req: VerifyOtpRequest):
+    """Verify the 6-digit OTP for a transaction."""
+    tx_id = req.transaction_id
+    entered_otp = req.entered_otp
+    
+    if tx_id not in otp_store:
+        return {"status": "INVALID_OTP", "message": "OTP expired or transaction not found"}
+        
+    if otp_store[tx_id] == entered_otp:
+        # OTP verified successfully
+        del otp_store[tx_id] # Clear OTP after successful verification
+        
+        # Optionally update log
+        for log in transaction_log:
+            if log.get('transaction_id') == tx_id:
+                log['decision'] = 'ALLOW (OTP Verified)'
+                break
+                
+        return {"status": "TRANSACTION_APPROVED"}
+    else:
+        return {"status": "INVALID_OTP"}
 
 @app.get("/api/sample-transactions")
 def get_sample_transactions(count: int = 5, include_fraud: bool = True):

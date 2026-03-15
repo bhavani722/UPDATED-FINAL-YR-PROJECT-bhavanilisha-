@@ -1,9 +1,33 @@
 import { useLocation, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { verifyOtp } from '../services/api';
 import { DecisionDisplay, ScoreBreakdown, FraudReasons, RiskMeter } from '../components/UIComponents';
 
 export default function ResultPage() {
     const location = useLocation();
-    const result = location.state?.result;
+    const [result, setResult] = useState(location.state?.result);
+    const [otp, setOtp] = useState('');
+    const [otpLoading, setOtpLoading] = useState(false);
+    const [otpFeedback, setOtpFeedback] = useState(null);
+
+    const handleVerifyOtp = async () => {
+        if (!otp) return;
+        setOtpLoading(true);
+        setOtpFeedback(null);
+        try {
+            const res = await verifyOtp(result.transaction_id, otp);
+            if (res.data.status === 'TRANSACTION_APPROVED') {
+                setOtpFeedback({ type: 'success', message: '✨ OTP Verified successfully! Transaction ALLOWED.' });
+                setResult(prev => ({ ...prev, decision: 'ALLOW', status: 'APPROVED' }));
+            } else {
+                setOtpFeedback({ type: 'error', message: res.data.message || 'Invalid OTP. Please try again.' });
+            }
+        } catch (err) {
+            setOtpFeedback({ type: 'error', message: 'Failed to verify OTP with server.' });
+        } finally {
+            setOtpLoading(false);
+        }
+    };
 
     if (!result) {
         return (
@@ -37,6 +61,52 @@ export default function ResultPage() {
 
             {/* Decision Display */}
             <DecisionDisplay decision={result.decision} score={result.final_risk_score} />
+
+            {/* OTP Verification Section */}
+            {result.status === 'OTP_REQUIRED' && result.decision === 'OTP' && (
+                <div className="glass-card animate-fadeInUp" style={{ marginTop: '1.5rem', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+                    <h3 className="section-title" style={{ color: '#fbbf24' }}>
+                        <span style={{ marginRight: '8px' }}>🔐</span>OTP Verification Required
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                        To complete this transaction, please enter the dynamically generated 6-digit OTP. 
+                        <br/><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>(Demo Note: The OTP is displayed in your backend console or returned in the API response: {result.otp_generated})</span>
+                    </p>
+                    
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <input 
+                            type="text" 
+                            className="form-input mono" 
+                            placeholder="Enter 6-digit OTP" 
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                            style={{ maxWidth: '200px', letterSpacing: '2px', textAlign: 'center' }}
+                            disabled={otpLoading}
+                        />
+                        <button 
+                            className="btn btn-primary" 
+                            onClick={handleVerifyOtp}
+                            disabled={otpLoading || otp.length !== 6 || otpFeedback?.type === 'success'}
+                        >
+                            {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                        </button>
+                    </div>
+
+                    {otpFeedback && (
+                        <div style={{ 
+                            marginTop: '12px', 
+                            padding: '10px 14px', 
+                            borderRadius: '8px',
+                            background: otpFeedback.type === 'success' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+                            color: otpFeedback.type === 'success' ? '#34d399' : '#fb7185',
+                            border: `1px solid ${otpFeedback.type === 'success' ? 'rgba(52, 211, 153, 0.3)' : 'rgba(244, 63, 94, 0.3)'}`,
+                            fontSize: '0.9rem'
+                        }}>
+                            {otpFeedback.message}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Risk Meter */}
             <div className="glass-card no-hover animate-fadeInUp" style={{ marginTop: '1.5rem' }}>
