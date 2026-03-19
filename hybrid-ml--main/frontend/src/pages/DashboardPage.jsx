@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
-import { getDashboard } from '../services/api';
+import { getDashboard, getBiometricStats } from '../services/api';
 import { StatCard, Loader } from '../components/UIComponents';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Fingerprint, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 export default function DashboardPage() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const [bioStats, setBioStats] = useState(null);
+
     useEffect(() => {
         getDashboard()
             .then(res => setData(res.data))
+            .catch(err => console.error(err));
+
+        getBiometricStats()
+            .then(res => setBioStats(res.data))
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, []);
@@ -108,6 +115,46 @@ export default function DashboardPage() {
                     )}
                 </div>
             </div>
+
+            {/* Biometric Health Section */}
+            {bioStats && (
+                <div className="glass-card no-hover animate-fadeInUp" style={{ marginTop: '1.5rem', padding: '1.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ padding: '8px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', color: '#10b981' }}>
+                                <Fingerprint size={20} />
+                            </div>
+                            <h3 className="section-title" style={{ margin: 0 }}>Biometric Health & Success Rate</h3>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <div style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <ShieldCheck size={14} className="text-emerald-400" />
+                                <span className="text-emerald-400 font-bold">{bioStats.success_rate}% Success</span>
+                            </div>
+                            <div style={{ padding: '4px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <ShieldAlert size={14} className="text-rose-400" />
+                                <span className="text-rose-400 font-bold">{bioStats.hardware_bypass_attempts} Bypass Blocked</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ height: '300px', width: '100%' }}>
+                        <ResponsiveContainer>
+                            <BarChart data={bioStats.hourly_data}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{ background: '#1a2035', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }}
+                                    itemStyle={{ fontSize: '12px' }}
+                                />
+                                <Bar dataKey="success" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} name="Success" />
+                                <Bar dataKey="fail" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={24} name="Failed" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
 
             {/* Dataset Overview */}
             <div className="glass-card no-hover animate-fadeInUp" style={{ marginTop: '1.5rem' }}>

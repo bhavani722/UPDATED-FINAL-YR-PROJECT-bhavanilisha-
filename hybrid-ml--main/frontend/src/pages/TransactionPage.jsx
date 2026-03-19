@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { evaluateTransaction } from '../services/api';
 import { Loader } from '../components/UIComponents';
+import BiometricModal from '../components/BiometricModal';
 
 const defaultTx = {
     User_ID: 'UPI_USER_1005',
@@ -41,6 +42,9 @@ export default function TransactionPage() {
     const [form, setForm] = useState({ ...defaultTx });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showBiometric, setShowBiometric] = useState(false);
+    const [pendingResult, setPendingResult] = useState(null);
+    const [pinStart, setPinStart] = useState(null);
     const navigate = useNavigate();
 
     const handleChange = (field, value) => {
@@ -53,6 +57,9 @@ export default function TransactionPage() {
         setError('');
 
         try {
+            const now = Date.now();
+            const pin_entry_ms = pinStart ? (now - pinStart) : 2500;
+
             const payload = {
                 ...form,
                 Amount: parseFloat(form.Amount),
@@ -63,11 +70,41 @@ export default function TransactionPage() {
                 SIM_Change_Flag: parseInt(form.SIM_Change_Flag),
                 VPN_Flag: parseInt(form.VPN_Flag),
                 Burst_Count: parseInt(form.Burst_Count),
+                pin_entry_ms: pin_entry_ms,
+                biometric_verified: null // Explicitly check for pre-check requirement
             };
+
             const res = await evaluateTransaction(payload);
+
+            if (res.data.action === "REQUIRE_BIOMETRICS") {
+                setPendingResult(res.data);
+                setShowBiometric(true);
+                setLoading(false);
+                return;
+            }
+
             navigate('/result', { state: { result: res.data } });
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to evaluate transaction. Is the backend running?');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBiometricSuccess = async (verified) => {
+        setShowBiometric(false);
+        setLoading(true);
+        try {
+            const payload = {
+                ...form,
+                Amount: parseFloat(form.Amount),
+                biometric_verified: verified,
+                pin_entry_ms: pinStart ? (Date.now() - pinStart) : 3000
+            };
+            const finalRes = await evaluateTransaction(payload);
+            navigate('/result', { state: { result: finalRes.data } });
+        } catch (err) {
+            setError("Error during final risk submission");
         } finally {
             setLoading(false);
         }
@@ -117,7 +154,9 @@ export default function TransactionPage() {
                         <div className="form-group">
                             <label className="form-label">Amount (₹)</label>
                             <input className="form-input mono" type="number" min="1" max="100000" step="0.01"
-                                value={form.Amount} onChange={(e) => handleChange('Amount', e.target.value)} />
+                                value={form.Amount}
+                                onFocus={() => !pinStart && setPinStart(Date.now())}
+                                onChange={(e) => handleChange('Amount', e.target.value)} />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Burst Count</label>
@@ -207,7 +246,7 @@ export default function TransactionPage() {
 
                 <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'center' }}>
                     {loading ? (
-                        <Loader message="Analyzing transaction through 6-layer engine..." />
+                        <Loader message="Analyzing transaction through 7-layer engine..." />
                     ) : (
                         <button type="submit" className="btn btn-primary btn-lg" style={{ minWidth: '280px' }}>
                             🚀 Evaluate Risk Score
@@ -215,6 +254,15 @@ export default function TransactionPage() {
                     )}
                 </div>
             </form>
+
+            <BiometricModal
+                isOpen={showBiometric}
+                onClose={() => setShowBiometric(false)}
+                onSuccess={handleBiometricSuccess}
+                transactionId={pendingResult?.transaction_id}
+                userId={form.User_ID}
+                amount={parseFloat(form.Amount)}
+            />
         </div>
     );
 }

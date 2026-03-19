@@ -36,13 +36,16 @@ export const healthCheck = () => api.get('/health');
 
 export const evaluateTransaction = (txData) => api.post('/evaluate', txData);
 
-export const verifyOtp = (transaction_id, entered_otp) => 
+export const verifyOtp = (transaction_id, entered_otp) =>
     api.post('/verify-otp', { transaction_id, entered_otp });
 
 export const getSampleTransactions = (count = 5) =>
     api.get(`/sample-transactions?count=${count}&include_fraud=true`);
 
 export const getDatasetStats = () => api.get('/dataset/stats');
+
+export const verifyBiometric = (transaction_id, credential_id, user_id) =>
+    api.post('/verify-biometric', { transaction_id, credential_id, user_id });
 
 // ============================================
 // AUTH APIs
@@ -71,6 +74,8 @@ export const getAdminUser = () => localStorage.getItem('admin_user');
 // ADMIN APIs
 // ============================================
 export const getDashboard = () => api.get('/admin/dashboard');
+
+export const getBiometricStats = () => api.get('/admin/biometric-stats');
 
 export const getAnalytics = () => api.get('/admin/analytics');
 

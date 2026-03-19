@@ -22,14 +22,15 @@ class HybridRiskEngine:
     and graph analysis into a single explainable risk score.
     """
 
-    # Weight configuration
+    # Weight configuration (Rebalanced for 7 layers)
     WEIGHTS = {
-        'core_model': 0.35,
-        'nlp_model': 0.15,
-        'lstm_model': 0.20,
+        'core_model': 0.30,
+        'nlp_model': 0.13,
+        'lstm_model': 0.17,
         'location_risk': 0.10,
         'device_risk': 0.10,
         'graph_risk': 0.10,
+        'biometric_risk': 0.10,
     }
 
     def __init__(self, model_dir='trained_models'):
@@ -182,7 +183,75 @@ class HybridRiskEngine:
         if not reasons:
             reasons.append("Transaction appears normal — no significant risk indicators")
 
+        # Biometric specific XAI
+        biometric_verified = tx_data.get('biometric_verified')
+        if biometric_verified is False:
+            reasons.append("Biometric mismatch: Identity could not be confirmed via fingerprint/FaceID")
+        
+        if tx_data.get('device_risk_score', 0) > 0.8:
+            reasons.append("Secure hardware bypass detected: rooted/jailbroken device behavior")
+
+        if tx_data.get('pin_entry_ms', 3000) < 1200:
+            reasons.append("Abnormal user interaction: PIN entry speed inconsistent with human behavior")
+
         return reasons
+
+    def precheck_requires_biometric(self, tx_data):
+        """
+        Runs a partial 6-layer assessment to decide if biometrics 
+        should be 'stepped up' (Adaptive Biometrics).
+        """
+        # 1. NLP
+        remark = tx_data.get('Remark_Text', tx_data.get('remark_text', ''))
+        nlp_score = self._get_nlp_score(remark)
+
+        # 2. Location
+        from modules.location_engine import calculate_location_risk
+        loc_res = calculate_location_risk(
+            sender_lat=tx_data.get('Sender_Lat', 0),
+            sender_lon=tx_data.get('Sender_Lon', 0),
+            sender_usual_lat=tx_data.get('Sender_Usual_Lat', 0),
+            sender_usual_lon=tx_data.get('Sender_Usual_Lon', 0),
+            receiver_lat=tx_data.get('Receiver_Lat', 0),
+            receiver_lon=tx_data.get('Receiver_Lon', 0),
+        )
+
+        # 3. Device
+        from modules.device_engine import calculate_device_risk
+        dev_res = calculate_device_risk(
+            device_id=tx_data.get('Device_ID', ''),
+            registered_device_id=tx_data.get('Registered_Device_ID', ''),
+            sim_change_flag=tx_data.get('SIM_Change_Flag', 0),
+        )
+
+        # 4. Core
+        core_features = {
+            'Amount': tx_data.get('Amount', 0),
+            'location_distance': loc_res['location_distance'],
+            'velocity': loc_res['velocity'],
+            'impossible_travel_flag': loc_res['impossible_travel_flag'],
+            'device_mismatch_flag': dev_res['device_mismatch_flag'],
+            'SIM_Change_Flag': dev_res['sim_change_flag'],
+            'VPN_Flag': tx_data.get('VPN_Flag', 0),
+            'Burst_Count': tx_data.get('Burst_Count', 0),
+            'burst_flag': 1 if tx_data.get('Burst_Count', 0) > 3 else 0,
+            'scam_probability': nlp_score,
+            'sender_receiver_distance': loc_res['sender_receiver_distance'],
+        }
+        input_df = pd.DataFrame([core_features])[self.core_features] if self.core_features else pd.DataFrame([core_features])
+        core_score = float(self.core_model.predict_proba(input_df)[0][1])
+
+        # 5. Risk Calculation (Sum of first 4 layers + device/loc/graph)
+        # Simplified pre-score to decide if STEP-UP is needed
+        pre_risk = (
+            0.40 * core_score + 
+            0.20 * nlp_score +
+            0.20 * loc_res['location_risk_score'] + 
+            0.20 * dev_res['device_risk_score']
+        )
+        
+        # Scenario B from requirement: New city (high loc risk) + high amount -> Risk > 0.4
+        return pre_risk > 0.4
 
     def evaluate_transaction(self, tx_data):
         """
@@ -255,15 +324,45 @@ class HybridRiskEngine:
 
         core_score = float(self.core_model.predict_proba(input_df)[0][1])
 
-        # --- 7. Hybrid Weighted Aggregation ---
+        # --- 7. Biometric Layer (Contextual & Behavioral) ---
+        biometric_verified = tx_data.get('biometric_verified')
+        amount = tx_data.get('Amount', tx_data.get('amount', 0))
+        pin_speed = tx_data.get('pin_entry_ms', 2000)
+
+        # Behavioral simulation: PIN speed risk
+        # Normal human usually takes > 1200ms for 6-digit PIN. Below 800ms looks like a bot.
+        behavioral_risk = 0.0
+        if pin_speed < 1200:
+            behavioral_risk += 0.4 # Bot indicator
+
+        # Biometric score calculation
+        if biometric_verified is True:
+            biometric_score = 0.0 + behavioral_risk
+        elif biometric_verified is False:
+            # Explicit failure (wrong fingerprint or cancelled)
+            biometric_score = 0.8 + behavioral_risk
+        else:
+            # Not provided (Low-risk threshold path)
+            biometric_score = 0.2 + behavioral_risk
+
+        # Multiplier Logic: If unverified and high amount, risk spikes
+        risk_multiplier = 1.0
+        if biometric_verified is not True and amount > 5000:
+            risk_multiplier = 1.4 # +40% as requested
+
+        # --- 8. Hybrid Weighted Aggregation ---
         final_risk = (
             self.WEIGHTS['core_model'] * core_score +
             self.WEIGHTS['nlp_model'] * nlp_score +
             self.WEIGHTS['lstm_model'] * lstm_score +
             self.WEIGHTS['location_risk'] * loc_result['location_risk_score'] +
             self.WEIGHTS['device_risk'] * dev_result['device_risk_score'] +
-            self.WEIGHTS['graph_risk'] * graph_score
-        )
+            self.WEIGHTS['graph_risk'] * graph_score +
+            self.WEIGHTS['biometric_risk'] * biometric_score
+        ) * risk_multiplier
+
+        # Cap at 1.0
+        final_risk = min(1.0, final_risk)
 
         # --- 8. Decision ---
         if final_risk < 0.3:
@@ -296,6 +395,8 @@ class HybridRiskEngine:
             'location_risk': scores['location_risk'],
             'device_risk': scores['device_risk'],
             'graph_risk': scores['graph_risk'],
+            'biometric_score': round(biometric_score, 4),
+            'biometric_verified': biometric_verified,
             'final_risk_score': round(final_risk, 4),
             'decision': decision,
             'fraud_reasons': fraud_reasons,

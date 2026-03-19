@@ -23,6 +23,7 @@ export function ScoreBreakdown({ scores }) {
         { label: 'Location Risk', key: 'location_risk', color: '#f59e0b' },
         { label: 'Device Risk', key: 'device_risk', color: '#ef4444' },
         { label: 'Graph Risk', key: 'graph_risk', color: '#06b6d4' },
+        { label: 'Biometric Risk', key: 'biometric_risk', color: '#10b981' },
     ];
 
     return (

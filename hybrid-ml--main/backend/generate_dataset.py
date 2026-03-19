@@ -283,8 +283,8 @@ def generate_upi_fraud_dataset(num_records=50000, fraud_ratio=0.10, output_dir='
         json.dump(mule_cluster_map, f, indent=2)
 
     print(f"\n{'=' * 60}")
-    print(f"  ✅ Dataset saved to: {output_file}")
-    print(f"  ✅ Mule clusters saved to: {cluster_file}")
+    print(f"  [OK] Dataset saved to: {output_file}")
+    print(f"  [OK] Mule clusters saved to: {cluster_file}")
     print(f"  Total Rows    : {len(df)}")
     print(f"  Fraud Count   : {df['Fraud_Label'].sum()} ({df['Fraud_Label'].mean()*100:.1f}%)")
     print(f"  Normal Count  : {(df['Fraud_Label']==0).sum()}")

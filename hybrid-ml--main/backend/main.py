@@ -42,6 +42,8 @@ class TransactionRequest(BaseModel):
     Burst_Count: int = Field(default=1, ge=0)
     Remark_Text: str = Field(default="Payment to friend")
     Sequence_Amount_List: str = Field(default="[500, 800, 300, 1200, 5000]")
+    biometric_verified: Optional[bool] = None
+    pin_entry_ms: Optional[int] = Field(default=2000, description="Behavioral signal: PIN speed")
 
 class LoginRequest(BaseModel):
     username: str
@@ -58,6 +60,11 @@ class TransactionFilter(BaseModel):
 class VerifyOtpRequest(BaseModel):
     transaction_id: str = Field(..., description="Transaction ID to verify")
     entered_otp: str = Field(..., description="6-digit OTP entered by user")
+
+class VerifyBiometricRequest(BaseModel):
+    transaction_id: str
+    credential_id: str
+    user_id: str
 
 # ============================================================
 # App Configuration
@@ -213,6 +220,16 @@ def evaluate_transaction(tx: TransactionRequest):
     tx_data['Transaction_ID'] = f"TXN_LIVE_{len(transaction_log)+1:06d}"
     tx_data['Timestamp'] = datetime.now().isoformat()
 
+    # --- ADAPTIVE BIOMETRICS PRE-CHECK ---
+    # If biometric_verified is None, it's the first attempt. Check if we should demand it.
+    if tx.biometric_verified is None:
+        if engine.precheck_requires_biometric(tx_data):
+            return {
+                "action": "REQUIRE_BIOMETRICS",
+                "transaction_id": tx_data['Transaction_ID'],
+                "message": "High-risk context detected. Biometric verification required to proceed."
+            }
+
     # Evaluate
     result = engine.evaluate_transaction(tx_data)
 
@@ -274,6 +291,23 @@ def verify_otp(req: VerifyOtpRequest):
         return {"status": "TRANSACTION_APPROVED"}
     else:
         return {"status": "INVALID_OTP"}
+
+@app.post("/verify-biometric")
+@app.post("/api/verify-biometric")
+def verify_biometric(req: VerifyBiometricRequest):
+    """
+    Simulated WebAuthn Biometric Verification Endpoint.
+    In production, this would verify the public key signature.
+    """
+    # For simulation, any credential starting with 'WEBAUTHN_' is valid
+    if req.credential_id.startswith("WEBAUTHN_") or req.credential_id == "mock_faceid_success":
+        return {
+            "status": "SUCCESS",
+            "verified": True,
+            "method": "FINGERPRINT",
+            "transaction_id": req.transaction_id
+        }
+    return {"status": "FAILED", "verified": False, "reason": "Biometric hardware signature mismatch"}
 
 @app.get("/api/sample-transactions")
 def get_sample_transactions(count: int = 5, include_fraud: bool = True):
@@ -486,6 +520,25 @@ def admin_fraud_breakdown(user=Depends(verify_token)):
         breakdown[reason] = round(count / max(total, 1) * 100, 1)
 
     return {'breakdown': breakdown, 'total_flagged': total}
+
+@app.get("/api/admin/biometric-stats")
+def get_biometric_stats(user=Depends(verify_token)):
+    """
+    Returns simulated biometric health metrics for the dashboard.
+    """
+    return {
+        "total_attempts": 142,
+        "success_rate": 94.2,
+        "hardware_bypass_attempts": 2,
+        "hourly_data": [
+            {"hour": "08:00", "success": 12, "fail": 1},
+            {"hour": "10:00", "success": 25, "fail": 0},
+            {"hour": "12:00", "success": 18, "fail": 2},
+            {"hour": "14:00", "success": 30, "fail": 0},
+            {"hour": "16:00", "success": 22, "fail": 1},
+            {"hour": "18:00", "success": 35, "fail": 0},
+        ]
+    }
 
 @app.get("/api/admin/transactions")
 def admin_transactions(

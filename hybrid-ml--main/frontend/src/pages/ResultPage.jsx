@@ -2,6 +2,7 @@ import { useLocation, Link } from 'react-router-dom';
 import { useState } from 'react';
 import { verifyOtp } from '../services/api';
 import { DecisionDisplay, ScoreBreakdown, FraudReasons, RiskMeter } from '../components/UIComponents';
+import { Fingerprint, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 export default function ResultPage() {
     const location = useLocation();
@@ -47,6 +48,7 @@ export default function ResultPage() {
         location_risk: result.location_risk || 0,
         device_risk: result.device_risk || 0,
         graph_risk: result.graph_risk || 0,
+        biometric_risk: result.biometric_score || 0,
     };
 
     return (
@@ -69,22 +71,22 @@ export default function ResultPage() {
                         <span style={{ marginRight: '8px' }}>🔐</span>OTP Verification Required
                     </h3>
                     <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                        To complete this transaction, please enter the dynamically generated 6-digit OTP. 
-                        <br/><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>(Demo Note: The OTP is displayed in your backend console or returned in the API response: {result.otp_generated})</span>
+                        To complete this transaction, please enter the dynamically generated 6-digit OTP.
+                        <br /><span style={{ fontSize: '0.8rem', opacity: 0.8 }}>(Demo Note: The OTP is displayed in your backend console or returned in the API response: {result.otp_generated})</span>
                     </p>
-                    
+
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <input 
-                            type="text" 
-                            className="form-input mono" 
-                            placeholder="Enter 6-digit OTP" 
+                        <input
+                            type="text"
+                            className="form-input mono"
+                            placeholder="Enter 6-digit OTP"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
                             style={{ maxWidth: '200px', letterSpacing: '2px', textAlign: 'center' }}
                             disabled={otpLoading}
                         />
-                        <button 
-                            className="btn btn-primary" 
+                        <button
+                            className="btn btn-primary"
                             onClick={handleVerifyOtp}
                             disabled={otpLoading || otp.length !== 6 || otpFeedback?.type === 'success'}
                         >
@@ -93,9 +95,9 @@ export default function ResultPage() {
                     </div>
 
                     {otpFeedback && (
-                        <div style={{ 
-                            marginTop: '12px', 
-                            padding: '10px 14px', 
+                        <div style={{
+                            marginTop: '12px',
+                            padding: '10px 14px',
                             borderRadius: '8px',
                             background: otpFeedback.type === 'success' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(244, 63, 94, 0.1)',
                             color: otpFeedback.type === 'success' ? '#34d399' : '#fb7185',
@@ -107,6 +109,32 @@ export default function ResultPage() {
                     )}
                 </div>
             )}
+
+            {/* Biometric Status Summary */}
+            <div className="glass-card no-hover animate-fadeInUp" style={{ marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                <div className={`p-4 rounded-full ${result.biometric_verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                    <Fingerprint size={32} />
+                </div>
+                <div style={{ flex: 1 }}>
+                    <h3 className="text-lg font-bold text-white mb-1">
+                        {result.biometric_verified ? 'Biometric Identity Confirmed' : 'Biometric Verification Missing/Failed'}
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                        {result.biometric_verified
+                            ? 'Secure hardware signature verified via WebAuthn protocol.'
+                            : 'Transaction proceeded without secure biometric confirmation or verification failed.'}
+                    </p>
+                </div>
+                <div className="text-right">
+                    <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Layer Score</div>
+                    <div className={`text-xl font-mono font-bold ${result.biometric_verified ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {result.biometric_score?.toFixed(4) || '0.0000'}
+                    </div>
+                </div>
+                <div>
+                    {result.biometric_verified ? <ShieldCheck className="text-emerald-400" /> : <ShieldAlert className="text-rose-400" />}
+                </div>
+            </div>
 
             {/* Risk Meter */}
             <div className="glass-card no-hover animate-fadeInUp" style={{ marginTop: '1.5rem' }}>
@@ -131,7 +159,7 @@ export default function ResultPage() {
                     <h3 className="section-title">🎯 Score Breakdown (Weighted)</h3>
                     <ScoreBreakdown scores={scores} />
                     <div style={{ marginTop: '16px', padding: '12px', background: 'var(--bg-glass)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        <strong>Formula:</strong> 0.35 × Core + 0.15 × NLP + 0.20 × LSTM + 0.10 × Location + 0.10 × Device + 0.10 × Graph
+                        <strong>Formula:</strong> 0.30 × Core + 0.13 × NLP + 0.17 × LSTM + 0.10 × Loc + 0.10 × Dev + 0.10 × Graph + 0.10 × Bio
                     </div>
                 </div>
 
