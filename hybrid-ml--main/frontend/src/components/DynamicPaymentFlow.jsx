@@ -8,6 +8,7 @@ import {
     Share2,
     ArrowRight,
     ArrowLeft,
+    Delete,
     ShieldCheck,
     Lock,
     Smartphone,
@@ -191,90 +192,113 @@ function PinEntryPage({ tx_data, onSuccess }) {
     };
 
     return (
-        <motion.div
-            initial={{ y: 50, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="flex flex-col h-full bg-[#1a1c1e] text-white relative"
-        >
-            {/* Header: Recipient Details */}
-            <div className="p-8 pb-4 flex flex-col items-center">
-                <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4 shadow-xl">
-                    {tx_data.receiver?.charAt(0) || 'U'}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+            <motion.div
+                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                className="w-full max-w-[380px] bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col font-sans"
+            >
+                {/* Upper Section with Recipient Info */}
+                <div className="bg-gray-50/80 p-8 flex flex-col items-center border-b border-gray-100">
+                    <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg shadow-indigo-200">
+                        {tx_data.receiver?.charAt(0) || 'U'}
+                    </div>
+                    <h2 className="text-gray-900 font-extrabold text-xl mb-1">{tx_data.receiver}</h2>
+                    <p className="text-gray-500 text-sm mb-6 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        {tx_data.upi_id}
+                    </p>
+                    <div className="text-5xl font-black flex items-start gap-1 text-gray-900 tracking-tighter">
+                        <span className="text-2xl mt-2 font-bold text-gray-400">₹</span>
+                        {tx_data.amount.toLocaleString()}
+                    </div>
                 </div>
-                <h2 className="text-xl font-bold mb-1">{tx_data.receiver}</h2>
-                <p className="text-sm text-gray-400 font-mono mb-4">{tx_data.upi_id}</p>
-                <div className="text-4xl font-black flex items-start gap-1">
-                    <span className="text-lg mt-2">₹</span>
-                    {tx_data.amount}
-                </div>
-            </div>
 
-            {/* PIN Entry Zone */}
-            <div className="flex-1 flex flex-col items-center justify-center -mt-10">
-                <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-8">ENTER 6-DIGIT UPI PIN</h3>
-                <div className="flex gap-4">
-                    {[0, 1, 2, 3, 4, 5].map((idx) => (
-                        <motion.div
-                            key={idx}
-                            animate={pin.length > idx ? { scale: [1, 1.2, 1] } : {}}
-                            className={`w-4 h-4 rounded-full border-2 transition-all ${pin.length > idx
-                                    ? 'bg-white border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]'
-                                    : 'border-white-20'
+                {/* PIN Entry Area */}
+                <div className="px-8 py-12 flex flex-col items-center bg-white">
+                    <p className="text-gray-400 text-[11px] font-black uppercase tracking-[0.25em] mb-10">ENTER 6-DIGIT UPI PIN</p>
+                    
+                    <div className="flex gap-4 mb-6">
+                        {[0, 1, 2, 3, 4, 5].map((idx) => (
+                            <motion.div
+                                key={idx}
+                                className={`w-5 h-5 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${
+                                    pin.length > idx 
+                                        ? 'bg-indigo-600 border-indigo-600 scale-110 shadow-[0_0_12px_rgba(79,70,229,0.4)]' 
+                                        : pin.length === idx 
+                                            ? 'bg-transparent border-indigo-400' 
+                                            : 'bg-transparent border-gray-200'
                                 }`}
-                        />
-                    ))}
+                                animate={pin.length === idx ? { scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 1 }}
+                                transition={pin.length === idx ? { repeat: Infinity, duration: 2, ease: "easeInOut" } : {}}
+                            >
+                                {pin.length > idx && (
+                                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                )}
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    <div className="h-4 w-full flex justify-center items-center mt-2">
+                        {loading && (
+                            <motion.div
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex items-center gap-2.5 text-indigo-600"
+                            >
+                                <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Securing Payment</span>
+                            </motion.div>
+                        )}
+                    </div>
                 </div>
-
-                {loading && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="mt-8 flex items-center gap-3 text-indigo-400"
+                {/* Mobile Style Keypad Section */}
+                <div className="w-full bg-gray-50/80 pb-12 pt-8 px-10 rounded-t-[40px] border-t border-gray-100 flex flex-col items-center">
+                    <div 
+                        style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: 'repeat(3, 1fr)', 
+                            gap: '24px', 
+                            width: '100%', 
+                            maxWidth: '300px', 
+                            justifyItems: 'center',
+                            alignItems: 'center',
+                            margin: '0 auto'
+                        }}
                     >
-                        <div className="w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Verifying PIN...</span>
-                    </motion.div>
-                )}
-            </div>
-
-            {/* Keypad */}
-            <div className="bg-[#242629] p-6 rounded-t-[40px] shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
-                <div className="grid-3 gap-y-4 max-w-sm mx-auto">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                            <button
+                                key={num}
+                                onClick={() => handleKeypadPress(num.toString())}
+                                className="w-[68px] h-[68px] flex items-center justify-center text-3xl font-extrabold bg-white text-black rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.12)] active:scale-95 transition-all border-none cursor-pointer select-none"
+                            >
+                                {num}
+                            </button>
+                        ))}
+                        <div className="w-[68px] h-[68px]" />
                         <button
-                            key={num}
-                            onClick={() => handleKeypadPress(num.toString())}
-                            className="h-16 text-2xl font-bold hover:bg-white-5 active:bg-white-10 rounded-full transition-colors border-none bg-none text-white cursor-pointer"
+                            onClick={() => handleKeypadPress('0')}
+                            className="w-[68px] h-[68px] flex items-center justify-center text-3xl font-extrabold bg-white text-black rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.12)] active:scale-95 transition-all border-none cursor-pointer select-none"
                         >
-                            {num}
+                            0
                         </button>
-                    ))}
-                    <div className="h-16" />
-                    <button
-                        onClick={() => handleKeypadPress('0')}
-                        className="h-16 text-2xl font-bold hover:bg-white-5 active:bg-white-10 rounded-full transition-colors border-none bg-none text-white cursor-pointer"
-                    >
-                        0
-                    </button>
-                    <button
-                        onClick={() => handleKeypadPress('←')}
-                        className="h-16 text-2xl flex items-center justify-center hover:bg-white-5 active:bg-white-10 rounded-full transition-colors border-none bg-none text-white cursor-pointer"
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
-                </div>
+                        <button
+                            onClick={() => handleKeypadPress('←')}
+                            className="w-[68px] h-[68px] flex items-center justify-center bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 active:scale-95 transition-all border-none cursor-pointer select-none"
+                        >
+                            <Delete size={28} />
+                        </button>
+                    </div>
 
-                <div className="mt-6 flex items-center justify-between px-4 text-[10px] text-gray-500 uppercase tracking-widest font-bold border-t border-white-5 pt-6">
-                    <div className="flex items-center gap-1">
-                        <ShieldCheck size={14} className="text-green-500" />
-                        SECURE NPCI GATEWAY
-                    </div>
-                    <div className="flex items-center gap-1 italic">
-                        BHIM <span className="text-indigo-400">UPI</span>
+                    <div className="mt-10 flex flex-col items-center gap-3 opacity-60">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 tracking-[0.25em]">
+                            <ShieldCheck size={16} className="text-gray-400" />
+                            SECURE NPCI GATEWAY
+                        </div>
                     </div>
                 </div>
-            </div>
-        </motion.div>
+            </motion.div>
+        </div>
     );
 }
 
@@ -402,14 +426,7 @@ function BlockedPage({ tx_data, xai_reasons, onClose }) {
                 transition={{ type: "spring", duration: 0.4, bounce: 0.2 }}
                 className="w-full max-w-md bg-[#111827] border border-rose-500/20 rounded-3xl p-6 text-center relative shadow-2xl shadow-rose-500/10 flex flex-col items-center max-h-[90vh] overflow-y-auto"
             >
-                {/* Close (X) Icon */}
-                <button
-                    onClick={() => onClose?.()}
-                    className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors border-none text-gray-400 hover:text-white cursor-pointer"
-                    aria-label="Close modal"
-                >
-                    <X size={20} />
-                </button>
+
 
                 <motion.div
                     animate={{ rotate: [-2, 2, -2] }}
