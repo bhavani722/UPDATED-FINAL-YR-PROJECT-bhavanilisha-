@@ -161,15 +161,16 @@ class HybridRiskEngine:
 
         return {
             'Amount': amount,
-            'amount_log': np.log1p(amount),
+            'location_distance': loc_res.get('location_distance', 0),
+            'velocity': loc_res.get('velocity', 0.0),
+            'impossible_travel_flag': loc_res.get('impossible_travel_flag', 0),
+            'device_mismatch_flag': dev_res.get('device_mismatch_flag', 0),
             'SIM_Change_Flag': dev_res.get('sim_change_flag', tx_data.get('SIM_Change_Flag', 0)),
             'VPN_Flag': tx_data.get('VPN_Flag', tx_data.get('vpn_flag', 0)),
             'Burst_Count': tx_data.get('Burst_Count', tx_data.get('burst_count', 0)),
-            'location_distance': loc_res.get('location_distance', 0),
-            'device_mismatch_flag': dev_res.get('device_mismatch_flag', 0),
-            'nlp_score': nlp_score,
-            'seq_std': std_dev,
-            'seq_max_ratio': max_ratio,
+            'burst_flag': 1 if tx_data.get('Burst_Count', tx_data.get('burst_count', 0)) > 3 else 0,
+            'scam_probability': nlp_score,
+            'sender_receiver_distance': loc_res.get('sender_receiver_distance', 0),
         }
 
     def _generate_fraud_reasons(self, scores, tx_data):

@@ -6,6 +6,8 @@ import {
     ShieldAlert,
     Share2,
     ArrowRight,
+    ArrowLeft,
+    ShieldCheck,
     Lock,
     Smartphone,
     Info,
