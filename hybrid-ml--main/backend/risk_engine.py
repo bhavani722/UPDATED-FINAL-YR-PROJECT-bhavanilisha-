@@ -141,6 +141,37 @@ class HybridRiskEngine:
             return 0.0
         return self.graph_engine.get_node_risk(user_id)
 
+    def _build_core_features(self, tx_data, loc_res, dev_res, nlp_score):
+        """Builds a consistent feature dictionary for the core XGBoost model."""
+        amount = float(tx_data.get('Amount', tx_data.get('amount', 0)))
+        seq_list = tx_data.get('Sequence_Amount_List', tx_data.get('sequence_amount_list', '[]'))
+        
+        # Sequence logic
+        try:
+            if isinstance(seq_list, str):
+                seq = json.loads(seq_list)
+            else:
+                seq = list(seq_list)
+            
+            std_dev = float(np.std(seq)) if len(seq) > 1 else 0.0
+            prev_mean = np.mean(seq[:-1]) if len(seq) > 1 else (seq[0] if seq else 0.0)
+            max_ratio = seq[-1] / (prev_mean + 1e-6) if len(seq) > 1 else 1.0
+        except Exception:
+            std_dev, max_ratio = 0.0, 1.0
+
+        return {
+            'Amount': amount,
+            'amount_log': np.log1p(amount),
+            'SIM_Change_Flag': dev_res.get('sim_change_flag', tx_data.get('SIM_Change_Flag', 0)),
+            'VPN_Flag': tx_data.get('VPN_Flag', tx_data.get('vpn_flag', 0)),
+            'Burst_Count': tx_data.get('Burst_Count', tx_data.get('burst_count', 0)),
+            'location_distance': loc_res.get('location_distance', 0),
+            'device_mismatch_flag': dev_res.get('device_mismatch_flag', 0),
+            'nlp_score': nlp_score,
+            'seq_std': std_dev,
+            'seq_max_ratio': max_ratio,
+        }
+
     def _generate_fraud_reasons(self, scores, tx_data):
         """Generate human-readable fraud reason explanations."""
         reasons = []
@@ -225,20 +256,13 @@ class HybridRiskEngine:
         )
 
         # 4. Core
-        core_features = {
-            'Amount': tx_data.get('Amount', 0),
-            'location_distance': loc_res['location_distance'],
-            'velocity': loc_res['velocity'],
-            'impossible_travel_flag': loc_res['impossible_travel_flag'],
-            'device_mismatch_flag': dev_res['device_mismatch_flag'],
-            'SIM_Change_Flag': dev_res['sim_change_flag'],
-            'VPN_Flag': tx_data.get('VPN_Flag', 0),
-            'Burst_Count': tx_data.get('Burst_Count', 0),
-            'burst_flag': 1 if tx_data.get('Burst_Count', 0) > 3 else 0,
-            'scam_probability': nlp_score,
-            'sender_receiver_distance': loc_res['sender_receiver_distance'],
-        }
-        input_df = pd.DataFrame([core_features])[self.core_features] if self.core_features else pd.DataFrame([core_features])
+        core_features = self._build_core_features(tx_data, loc_res, dev_res, nlp_score)
+        
+        if self.core_features:
+            input_df = pd.DataFrame([core_features])[self.core_features]
+        else:
+            input_df = pd.DataFrame([core_features])
+            
         core_score = float(self.core_model.predict_proba(input_df)[0][1])
 
         # 5. Risk Calculation (Sum of first 4 layers + device/loc/graph)
@@ -303,19 +327,7 @@ class HybridRiskEngine:
 
         # --- 6. Core Model Score ---
         # Build feature vector for core model
-        core_features = {
-            'Amount': tx_data.get('Amount', tx_data.get('amount', 0)),
-            'location_distance': loc_result['location_distance'],
-            'velocity': loc_result['velocity'],
-            'impossible_travel_flag': loc_result['impossible_travel_flag'],
-            'device_mismatch_flag': dev_result['device_mismatch_flag'],
-            'SIM_Change_Flag': dev_result['sim_change_flag'],
-            'VPN_Flag': tx_data.get('VPN_Flag', tx_data.get('vpn_flag', 0)),
-            'Burst_Count': tx_data.get('Burst_Count', tx_data.get('burst_count', 0)),
-            'burst_flag': 1 if tx_data.get('Burst_Count', tx_data.get('burst_count', 0)) > 3 else 0,
-            'scam_probability': nlp_score,
-            'sender_receiver_distance': loc_result['sender_receiver_distance'],
-        }
+        core_features = self._build_core_features(tx_data, loc_result, dev_result, nlp_score)
 
         if self.core_features:
             input_df = pd.DataFrame([core_features])[self.core_features]

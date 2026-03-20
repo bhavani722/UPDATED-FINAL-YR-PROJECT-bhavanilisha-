@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { evaluateTransaction } from '../services/api';
 import { Loader } from '../components/UIComponents';
 import BiometricModal from '../components/BiometricModal';
+import DynamicPaymentFlow from '../components/DynamicPaymentFlow';
 
 const defaultTx = {
     User_ID: 'UPI_USER_1005',
@@ -45,6 +46,8 @@ export default function TransactionPage() {
     const [showBiometric, setShowBiometric] = useState(false);
     const [pendingResult, setPendingResult] = useState(null);
     const [pinStart, setPinStart] = useState(null);
+    const [showPaymentFlow, setShowPaymentFlow] = useState(false);
+    const [finalResult, setFinalResult] = useState(null);
     const navigate = useNavigate();
 
     const handleChange = (field, value) => {
@@ -83,7 +86,8 @@ export default function TransactionPage() {
                 return;
             }
 
-            navigate('/result', { state: { result: res.data } });
+            setFinalResult(res.data);
+            setShowPaymentFlow(true);
         } catch (err) {
             setError(err.response?.data?.detail || 'Failed to evaluate transaction. Is the backend running?');
         } finally {
@@ -102,7 +106,8 @@ export default function TransactionPage() {
                 pin_entry_ms: pinStart ? (Date.now() - pinStart) : 3000
             };
             const finalRes = await evaluateTransaction(payload);
-            navigate('/result', { state: { result: finalRes.data } });
+            setFinalResult(finalRes.data);
+            setShowPaymentFlow(true);
         } catch (err) {
             setError("Error during final risk submission");
         } finally {
@@ -263,6 +268,34 @@ export default function TransactionPage() {
                 userId={form.User_ID}
                 amount={parseFloat(form.Amount)}
             />
+
+            {showPaymentFlow && finalResult && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black-80 backdrop-blur">
+                    <div className="w-full h-full max-w-4xl max-h-[800px] bg-secondary rounded-3xl overflow-hidden shadow-2xl relative border border-white-10">
+                        <button
+                            onClick={() => setShowPaymentFlow(false)}
+                            className="absolute top-6 right-6 z-[60] text-gray-400 hover:text-white transition-colors bg-none border-none cursor-pointer"
+                        >
+                            <span className="text-2xl">&times;</span>
+                        </button>
+
+                        <DynamicPaymentFlow
+                            risk_score={finalResult.final_risk_score}
+                            tx_data={{
+                                amount: finalResult.amount,
+                                receiver: form.Receiver_ID, // Or lookup receiver name if available
+                                upi_id: `${form.Receiver_ID}@upi`
+                            }}
+                            xai_reasons={finalResult.fraud_reasons}
+                            onConfirm={() => {
+                                setShowPaymentFlow(false);
+                                navigate('/result', { state: { result: finalResult } });
+                            }}
+                            onCancel={() => setShowPaymentFlow(false)}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
