@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     CheckCircle2,
     XCircle,
+    X,
     ShieldAlert,
     Share2,
     ArrowRight,
@@ -84,7 +85,7 @@ export default function DynamicPaymentFlow({
                 )}
 
                 {step === 'block' && (
-                    <BlockedPage key="block" tx_data={tx_data} xai_reasons={xai_reasons} />
+                    <BlockedPage key="block" tx_data={tx_data} xai_reasons={xai_reasons} onClose={onCancel} />
                 )}
             </AnimatePresence>
         </div>
@@ -363,75 +364,120 @@ function OTPBottomSheet({ tx_data, onSuccess, onClose }) {
     );
 }
 
-function BlockedPage({ tx_data, xai_reasons }) {
+function BlockedPage({ tx_data, xai_reasons, onClose }) {
+    // Esc key support and scroll locking
+    useEffect(() => {
+        // Prevent background scrolling
+        document.body.style.overflow = 'hidden';
+
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                onClose?.();
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+
+        return () => {
+            // Restore background scrolling
+            document.body.style.overflow = 'unset';
+            window.removeEventListener('keydown', handleEsc);
+        };
+    }, [onClose]);
+
     return (
-        <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="flex flex-col items-center justify-center min-h-[500px] p-6 text-center"
+        // Outside click close & Prevent background interaction
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-hidden"
+            onClick={(e) => { 
+                if (e.target === e.currentTarget) {
+                    onClose?.(); 
+                }
+            }}
         >
+            {/* Smooth Animations & Responsive Design */}
             <motion.div
-                animate={{ rotate: [-2, 2, -2] }}
-                transition={{ duration: 0.5, repeat: 3 }}
-                className="mb-8"
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ type: "spring", duration: 0.4, bounce: 0.2 }}
+                className="w-full max-w-md bg-[#111827] border border-rose-500/20 rounded-3xl p-6 text-center relative shadow-2xl shadow-rose-500/10 flex flex-col items-center max-h-[90vh] overflow-y-auto"
             >
-                <div className="relative">
-                    <div className="absolute inset-0 bg-rose-500-10 blur-3xl rounded-full" />
-                    <XCircle size={120} className="text-rose-400 relative z-10" strokeWidth={1} />
+                {/* Close (X) Icon */}
+                <button
+                    onClick={() => onClose?.()}
+                    className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors border-none text-gray-400 hover:text-white cursor-pointer"
+                    aria-label="Close modal"
+                >
+                    <X size={20} />
+                </button>
+
+                <motion.div
+                    animate={{ rotate: [-2, 2, -2] }}
+                    transition={{ duration: 0.5, repeat: 3 }}
+                    className="mb-6 mt-2"
+                >
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-rose-500/20 blur-2xl rounded-full" />
+                        <XCircle size={80} className="text-rose-400 relative z-10" strokeWidth={1.5} />
+                    </div>
+                </motion.div>
+
+                {/* Visual Improvements (Warning color theme) */}
+                <h1 className="text-2xl font-extrabold text-white mb-2">Transaction Blocked</h1>
+                <div className="py-1.5 px-4 bg-rose-500/10 border border-rose-500/20 rounded-full mb-6 inline-flex">
+                    <p className="text-rose-400 font-bold uppercase tracking-widest text-[10px]">High Risk Detected</p>
+                </div>
+
+                <div className="w-full mb-6 space-y-3">
+                    {/* Risk Context Card */}
+                    <div className="glass-card bg-rose-500/5 border border-rose-500/20 p-4 rounded-2xl text-left">
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-400">
+                                <ShieldAlert size={16} />
+                            </div>
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">Security Analysis</span>
+                        </div>
+                        <ul className="space-y-2">
+                            {xai_reasons?.map((reason, idx) => (
+                                <motion.li
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.2 + (idx * 0.1) }}
+                                    key={idx}
+                                    className="flex items-start gap-2 text-xs text-gray-300"
+                                >
+                                    <ShieldAlert size={12} className="mt-0.5 text-rose-400 flex-shrink-0" />
+                                    <span>{reason}</span>
+                                </motion.li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    <div className="glass-card bg-white/5 border border-white/10 p-4 rounded-2xl flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Smartphone size={18} className="text-gray-400" />
+                            <div className="text-left">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Hardware ID</p>
+                                <p className="text-xs text-white font-mono">{Math.random().toString(16).substr(2, 6).toUpperCase()}</p>
+                            </div>
+                        </div>
+                        <Info size={16} className="text-gray-600" />
+                    </div>
+                </div>
+
+                {/* Cancel Button */}
+                <div className="w-full flex flex-col gap-3 mt-auto">
+                    <button 
+                        onClick={() => onClose?.()}
+                        className="w-full py-4 bg-transparent hover:bg-white/5 border border-white/10 text-white rounded-xl font-bold transition-all cursor-pointer"
+                    >
+                        Cancel Transaction
+                    </button>
+                    <p className="text-[10px] text-gray-500 px-4 leading-relaxed">
+                        If you believe this is an error, please contact support with Ref: <span className="font-mono text-gray-400">#ERR_{Math.random().toString(36).substr(2, 4).toUpperCase()}</span>
+                    </p>
                 </div>
             </motion.div>
-
-            <h1 className="text-3xl font-extrabold text-white mb-2">We cannot make payment</h1>
-            <div className="py-2 px-6 bg-rose-500-10 border border-rose-500-20 rounded-full mb-8">
-                <p className="text-rose-400 font-bold uppercase tracking-widest text-xs">Security Block: Transaction Blocked</p>
-            </div>
-
-            <div className="w-full max-w-sm mb-8 space-y-4">
-                {/* Risk Context Card */}
-                <div className="glass-card bg-rose-500-5 border border-rose-500-20 p-5 rounded-3xl text-left">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-rose-500-10 rounded-xl text-rose-400">
-                            <Lock size={20} />
-                        </div>
-                        <span className="text-sm font-bold text-white">XAI Security Analysis</span>
-                    </div>
-                    <ul className="space-y-3">
-                        {xai_reasons.map((reason, idx) => (
-                            <motion.li
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: 0.2 + (idx * 0.1) }}
-                                key={idx}
-                                className="flex items-start gap-2 text-sm text-gray-400"
-                            >
-                                <ShieldAlert size={14} className="mt-1 text-rose-400 flex-shrink-0" />
-                                {reason}
-                            </motion.li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div className="glass-card bg-white-5 border border-white-10 p-5 rounded-3xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Smartphone size={20} className="text-gray-400" />
-                        <div className="text-left">
-                            <p className="text-xs text-gray-500 uppercase">Hardware ID</p>
-                            <p className="text-sm text-white font-mono">{Math.random().toString(16).substr(2, 6).toUpperCase()}</p>
-                        </div>
-                    </div>
-                    <Info size={16} className="text-gray-600" />
-                </div>
-            </div>
-
-            <div className="w-full max-w-sm">
-                <button className="w-full py-5 bg-white text-black hover:bg-gray-200 rounded-2xl font-black text-lg transition-all mb-4 cursor-pointer border-none">
-                    Security Dashboard
-                </button>
-                <p className="text-xs text-gray-500">
-                    If you believe this is an error, please contact UPI support with Transaction ID: <span className="font-mono">#ERR_SEC_{Math.random().toString(36).substr(2, 4).toUpperCase()}</span>
-                </p>
-            </div>
-        </motion.div>
+        </div>
     );
 }
