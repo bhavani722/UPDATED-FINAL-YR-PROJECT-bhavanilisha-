@@ -192,110 +192,96 @@ function PinEntryPage({ tx_data, onSuccess }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
             <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
-                animate={{ scale: 1, opacity: 1, y: 0 }}
-                className="w-full max-w-[380px] bg-white rounded-[40px] shadow-2xl overflow-hidden flex flex-col font-sans"
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-full max-w-[360px] mx-auto p-6 rounded-[24px] bg-white/5 backdrop-blur-[12px] border border-white/10 shadow-2xl flex flex-col items-center"
             >
-                {/* Upper Section with Recipient Info */}
-                <div className="bg-gray-50/80 p-8 flex flex-col items-center border-b border-gray-100">
-                    <div className="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-4 shadow-lg shadow-indigo-200">
+                {/* Header Section */}
+                <div className="flex flex-col items-center mb-10">
+                    <div className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white text-xl font-bold mb-3 shadow-lg shadow-indigo-500/20">
                         {tx_data.receiver?.charAt(0) || 'U'}
                     </div>
-                    <h2 className="text-gray-900 font-extrabold text-xl mb-1">{tx_data.receiver}</h2>
-                    <p className="text-gray-500 text-sm mb-6 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                        {tx_data.upi_id}
-                    </p>
-                    <div className="text-5xl font-black flex items-start gap-1 text-gray-900 tracking-tighter">
-                        <span className="text-2xl mt-2 font-bold text-gray-400">₹</span>
+                    <h2 className="text-white font-bold text-lg mb-0.5">{tx_data.receiver}</h2>
+                    <p className="text-gray-400 text-[10px] uppercase tracking-widest">{tx_data.upi_id}</p>
+                    <div className="text-4xl font-black text-white flex items-start gap-1 mt-4">
+                        <span className="text-xl mt-1.5 font-bold text-gray-500">₹</span>
                         {tx_data.amount.toLocaleString()}
                     </div>
                 </div>
 
-                {/* PIN Entry Area */}
-                <div className="px-8 py-12 flex flex-col items-center bg-white">
-                    <p className="text-gray-400 text-[11px] font-black uppercase tracking-[0.25em] mb-10">ENTER 6-DIGIT UPI PIN</p>
+                {/* PIN Display - 6 Native Style Dots */}
+                <div className="flex flex-col items-center w-full mb-8">
+                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.25em] mb-8">ENTER 6-DIGIT UPI PIN</p>
                     
-                    <div className="flex gap-4 mb-6">
+                    <div className="flex gap-[12px]">
                         {[0, 1, 2, 3, 4, 5].map((idx) => (
                             <motion.div
                                 key={idx}
-                                className={`w-5 h-5 rounded-full border-2 transition-all duration-300 flex items-center justify-center ${
-                                    pin.length > idx 
-                                        ? 'bg-indigo-600 border-indigo-600 scale-110 shadow-[0_0_12px_rgba(79,70,229,0.4)]' 
-                                        : pin.length === idx 
-                                            ? 'bg-transparent border-indigo-400' 
-                                            : 'bg-transparent border-gray-200'
-                                }`}
-                                animate={pin.length === idx ? { scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 1 }}
-                                transition={pin.length === idx ? { repeat: Infinity, duration: 2, ease: "easeInOut" } : {}}
-                            >
-                                {pin.length > idx && (
-                                    <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                                )}
-                            </motion.div>
+                                className="w-[14px] h-[14px] rounded-full border-2 transition-all duration-200"
+                                style={{
+                                    borderColor: pin.length > idx ? '#fff' : 'rgba(255,255,255,0.2)',
+                                    background: pin.length > idx ? '#fff' : 'transparent',
+                                    boxShadow: pin.length > idx ? '0 0 10px rgba(255,255,255,0.4)' : 'none'
+                                }}
+                                animate={pin.length === idx ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+                                transition={{ repeat: Infinity, duration: 2 }}
+                            />
                         ))}
                     </div>
 
-                    <div className="h-4 w-full flex justify-center items-center mt-2">
+                    <div className="h-6 mt-4 flex items-center">
                         {loading && (
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex items-center gap-2.5 text-indigo-600"
-                            >
-                                <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Securing Payment</span>
-                            </motion.div>
+                            <div className="flex items-center gap-2 text-indigo-400">
+                                <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-[9px] font-bold uppercase tracking-widest">Securing Connection</span>
+                            </div>
                         )}
                     </div>
                 </div>
-                {/* Mobile Style Keypad Section */}
-                <div className="w-full bg-gray-50/80 pb-12 pt-8 px-10 rounded-t-[40px] border-t border-gray-100 flex flex-col items-center">
-                    <div 
-                        style={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: 'repeat(3, 1fr)', 
-                            gap: '24px', 
-                            width: '100%', 
-                            maxWidth: '300px', 
-                            justifyItems: 'center',
-                            alignItems: 'center',
-                            margin: '0 auto'
+
+                {/* Premium Round Keypad */}
+                <div className="w-full mt-4">
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(3, 1fr)',
+                            gap: '20px',
+                            justifyItems: 'center'
                         }}
                     >
                         {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                            <button
+                            <motion.button
                                 key={num}
+                                whileTap={{ scale: 0.92 }}
                                 onClick={() => handleKeypadPress(num.toString())}
-                                className="w-[68px] h-[68px] flex items-center justify-center text-3xl font-extrabold bg-white text-black rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.12)] active:scale-95 transition-all border-none cursor-pointer select-none"
+                                className="w-[75px] h-[75px] flex items-center justify-center text-[22px] font-semibold bg-white text-black rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.3)] transition-all border-none cursor-pointer select-none"
                             >
                                 {num}
-                            </button>
+                            </motion.button>
                         ))}
-                        <div className="w-[68px] h-[68px]" />
-                        <button
+                        <div className="w-[75px] h-[75px]" />
+                        <motion.button
+                            whileTap={{ scale: 0.92 }}
                             onClick={() => handleKeypadPress('0')}
-                            className="w-[68px] h-[68px] flex items-center justify-center text-3xl font-extrabold bg-white text-black rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.12)] active:scale-95 transition-all border-none cursor-pointer select-none"
+                            className="w-[75px] h-[75px] flex items-center justify-center text-[22px] font-semibold bg-white text-black rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.3)] transition-all border-none cursor-pointer select-none"
                         >
                             0
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
+                            whileTap={{ scale: 0.92 }}
                             onClick={() => handleKeypadPress('←')}
-                            className="w-[68px] h-[68px] flex items-center justify-center bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 active:scale-95 transition-all border-none cursor-pointer select-none"
+                            className="w-[75px] h-[75px] flex items-center justify-center bg-white text-black rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.3)] transition-all border-none cursor-pointer select-none"
                         >
-                            <Delete size={28} />
-                        </button>
+                            <Delete size={24} />
+                        </motion.button>
                     </div>
+                </div>
 
-                    <div className="mt-10 flex flex-col items-center gap-3 opacity-60">
-                        <div className="flex items-center gap-2 text-[10px] font-black text-gray-500 tracking-[0.25em]">
-                            <ShieldCheck size={16} className="text-gray-400" />
-                            SECURE NPCI GATEWAY
-                        </div>
-                    </div>
+                <div className="mt-10 flex items-center gap-2 opacity-30 text-[9px] font-bold text-white tracking-[0.2em] uppercase">
+                    <ShieldCheck size={14} />
+                    Secure NPCI Interface
                 </div>
             </motion.div>
         </div>
@@ -410,11 +396,11 @@ function BlockedPage({ tx_data, xai_reasons, onClose }) {
 
     return (
         // Outside click close & Prevent background interaction
-        <div 
+        <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-hidden"
-            onClick={(e) => { 
+            onClick={(e) => {
                 if (e.target === e.currentTarget) {
-                    onClose?.(); 
+                    onClose?.();
                 }
             }}
         >
@@ -484,7 +470,7 @@ function BlockedPage({ tx_data, xai_reasons, onClose }) {
 
                 {/* Cancel Button */}
                 <div className="w-full flex flex-col gap-3 mt-auto">
-                    <button 
+                    <button
                         onClick={() => onClose?.()}
                         className="w-full py-4 bg-transparent hover:bg-white/5 border border-white/10 text-white rounded-xl font-bold transition-all cursor-pointer"
                     >
